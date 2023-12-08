@@ -8,7 +8,7 @@ from textual.app import App
 from textual.widgets import Footer, Header, Static
 from textual.containers import ScrollableContainer, VerticalScroll
 
-from navigatable import Navigatable, CodeNavigation
+from navigatable import Navigatable, CodeNavigatable
 
 from typing import TYPE_CHECKING
 
@@ -27,7 +27,7 @@ class MyApp(App):
     
     def compose(self):
         yield Header()
-        yield CodeNavigation(id='code')
+        yield CodeNavigatable(id='code', filepath='navigatable.py', index=5)
         # yield CodeNavigation(id='code2')
         yield Footer()
     

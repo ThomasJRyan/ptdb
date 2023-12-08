@@ -1,9 +1,15 @@
-from typing import Any, Coroutine
+from __future__ import annotations
+
+from typing import Any, Coroutine, ClassVar
 from rich.syntax import Syntax, ANSISyntaxTheme, ANSI_DARK, SyntaxTheme
 
 from textual.events import Resize, Event
+from textual.binding import Binding, BindingType
 from textual.widgets import Static
-from textual.containers import VerticalScroll
+from textual.containers import VerticalScroll, Vertical
+
+# print(f'{self._index=}, {self._line_cursor=}, {self.start=}, {self.end=}, {self.height=}, {len(self.children)}')
+
 
 class Line(Static):
     """A simple label widget for displaying text-oriented renderables."""
@@ -14,9 +20,15 @@ class Line(Static):
         height: 1;
     }
     """
+    
+def ensure_lines(func):
+    def wrapper(self, *args, **kwargs):
+        if not self.lines:
+            return
+        return func(self, *args, **kwargs)
+    return wrapper
 
-
-class Navigatable(VerticalScroll):
+class Navigatable(Vertical, can_focus=True):
     
     DEFAULT_CSS = """    
     Navigatable .highlighted {
@@ -24,33 +36,47 @@ class Navigatable(VerticalScroll):
     }
     """
     
-    def __init__(self, index: int = 0, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    BINDINGS: ClassVar[list[BindingType]] = [
+        Binding("up", "scroll_up", "Scroll Up", show=False),
+        Binding("down", "scroll_down", "Scroll Down", show=False),
+        Binding("left", "scroll_left", "Scroll Up", show=False),
+        Binding("right", "scroll_right", "Scroll Right", show=False),
+        Binding("home", "scroll_home", "Scroll Home", show=False),
+        Binding("end", "scroll_end", "Scroll End", show=False),
+        Binding("pageup", "page_up", "Page Up", show=False),
+        Binding("pagedown", "page_down", "Page Down", show=False),
+    ]
+    
+    def __init__(self, *args, index: int = 0, **kwargs):
         self.lines = None
         self._index = index
         self._line_cursor = 0
-        
-    def set_lines(self, text: str, language: str = 'python', theme: SyntaxTheme = ANSISyntaxTheme, cursor_pos: int = 0):
-        """Sets the lines
-
-        Args:
-            text (str): Text to split on newlines and set
-            language (str, optional): Language to highlight. Defaults to 'python'.
-            theme (SyntaxTheme, optional): Theme to use to highlight. Defaults to ANSISyntaxTheme.
-            cursor_pos (int, optional): Cursor position to start at. Defaults to 0
-        """
-        syntax_highlighter = Syntax('', language, theme=theme(ANSI_DARK))
-        highlighted_text = syntax_highlighter.highlight(text)
-        self.lines = highlighted_text.split()
-        
-        # Remove children and update lines
-        self.remove_children()
-        self.update_line_range()
-        for i in range(self.start, self.end):
-            self.mount(Line(self.lines[i]))
             
-        self._index = cursor_pos
-        self.reload_lines()
+        super().__init__(*args, **kwargs)
+        
+        
+        
+    # def set_lines(self, text: str, language: str = 'python', theme: SyntaxTheme = ANSISyntaxTheme, cursor_pos: int = 0):
+    #     """Sets the lines
+
+    #     Args:
+    #         text (str): Text to split on newlines and set
+    #         language (str, optional): Language to highlight. Defaults to 'python'.
+    #         theme (SyntaxTheme, optional): Theme to use to highlight. Defaults to ANSISyntaxTheme.
+    #         cursor_pos (int, optional): Cursor position to start at. Defaults to 0
+    #     """
+    #     syntax_highlighter = Syntax('', language, theme=theme(ANSI_DARK))
+    #     highlighted_text = syntax_highlighter.highlight(text)
+    #     self.lines = highlighted_text.split()
+        
+    #     # Remove children and update lines
+    #     self.remove_children()
+    #     self.update_line_range()
+    #     for i in range(self.start, self.end):
+    #         self.mount(Line(self.lines[i]))
+            
+    #     self._index = cursor_pos
+    #     self.reload_lines()
         
     def reload_lines(self):
         """Reload the lines. Primarly used for terminal size change"""
@@ -69,10 +95,11 @@ class Navigatable(VerticalScroll):
                 self.end += 1
                 self.start += 1
         
+        # Mount the lines to the container
         for cur_pos, i in enumerate(range(self.start, self.end)):
             if id(self.lines[i]) == id(current_line):
                 self._line_cursor = cur_pos
-            self.mount(Line(self.lines[i]))
+            self.mount(self.format_line(self.lines[i]))
             
         # Add our cursor highlight
         self.children[self._line_cursor].add_class('highlighted')
@@ -94,14 +121,14 @@ class Navigatable(VerticalScroll):
         """
         # Move Down
         if self._index >= self.end:
-            self.mount(Line(self.lines[self._index]))
+            self.mount(self.format_line(self.lines[self._index]))
             self.children[0].remove()
             self.end += direction
             self.start += direction
             return True
         # Move Up
         elif self._index < self.start:
-            self.mount(Line(self.lines[self._index]), before=0)
+            self.mount(self.format_line(self.lines[self._index]), before=0)
             self.children[-1].remove()
             self.end += direction
             self.start += direction
@@ -122,23 +149,28 @@ class Navigatable(VerticalScroll):
             self._line_cursor += direction
         self.children[self._line_cursor].add_class('highlighted')
         
+    def format_line(self, line):
+        return Line(line)
+    
+    #------------------------------------------------
+    #                Actions
+    #------------------------------------------------
+    
+    @ensure_lines
     def action_scroll_down(self) -> None:
         """Scroll the text down"""
-        if not self.lines:
-            return
         if self._index + 1 < len(self.lines):
             self.update_cursor(1)
-            self.refresh(layout=True)
-        print(f'{self._index=}, {self._line_cursor=}, {self.start=}, {self.end=}, {self.height=}, {len(self.children)}')
             
+    @ensure_lines
     def action_scroll_up(self) -> None:
         """Scroll the text up"""
-        if not self.lines:
-            return
         if self._index - 1 >= 0:
             self.update_cursor(-1)
-            self.refresh(layout=True)
-        print(f'{self._index=}, {self._line_cursor=}, {self.start=}, {self.end=}, {self.height=}, {len(self.children)}')
+        
+    #------------------------------------------------
+    #                Events
+    #------------------------------------------------
         
     def on_event(self, event: Event) -> Coroutine[Any, Any, None]:
         """Reload the text on terminal resize
@@ -153,15 +185,24 @@ class Navigatable(VerticalScroll):
             self.reload_lines()
         return super().on_event(event)
         
-class CodeNavigation(Navigatable):
+class CodeNavigatable(Navigatable):
     
     BINDINGS = [
         ('s', 'set_text', 'Set Text')
     ]
     
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(self, *args, filepath: str, index: int = 0, language: str = 'python', theme: SyntaxTheme = ANSISyntaxTheme, **kwargs):
+        super().__init__(*args, index=index, **kwargs)
         
-    def action_set_text(self):
-        with open('navigatable.py') as fil:
-            self.set_lines(fil.read(), cursor_pos=100)
+        with open(filepath) as fil:
+            text = fil.read()
+            syntax_highlighter = Syntax('', language, theme=theme(ANSI_DARK))
+            highlighted_text = syntax_highlighter.highlight(text)
+            self.lines = highlighted_text.split()
+            
+    def format_line(self, line):
+        return Line(line)
+    
+    # def action_set_text(self):
+    #     with open('navigatable.py') as fil:
+    #         self.set_lines(fil.read(), cursor_pos=100)
