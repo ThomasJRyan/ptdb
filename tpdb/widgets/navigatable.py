@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+from types import ModuleType
 from typing import Any, Coroutine, ClassVar, TYPE_CHECKING
 
 from rich.syntax import Syntax, ANSISyntaxTheme, ANSI_DARK, SyntaxTheme, Lines
 from rich.text import Text
 
 
+from textual.reactive import reactive
 from textual.events import Resize, Event
 from textual.binding import Binding, BindingType
 from textual.widgets import Static
@@ -38,7 +40,7 @@ class Navigatable(Vertical, can_focus=True):
     
     DEFAULT_CSS = """    
     Navigatable .highlighted {
-        background: rgb(0,128,255);
+        background: rgb(0,128,255) !important;
     }
     """
     
@@ -195,14 +197,25 @@ class Navigatable(Vertical, can_focus=True):
         
 class CodeNavigatable(Navigatable):
     
+    DEFAULT_CSS = """    
+    CodeNavigatable .current_line {
+        background: rgb(0,128,0);
+    }
+    """
+    
     BINDINGS = [
-        ('b', 'toggle_breakpoint', 'Toggle Breakpoint')
+        ('b', 'toggle_breakpoint', 'Toggle Breakpoint'),
+        ('s', 'do_step', 'Step'),
+        ('n', 'do_next', 'Next'),
     ]
+    
+    # current_line = reactive(0)
     
     def __init__(self, *args, filepath: str, index: int = 0, language: str = 'python', theme: SyntaxTheme = ANSISyntaxTheme, **kwargs):
         super().__init__(*args, index=index, **kwargs)
         
         self.filepath = filepath
+        self.current_line = self.debugger.current_frame.f_lineno - 1
         
         with open(filepath) as fil:
             text = fil.read()
@@ -218,21 +231,90 @@ class CodeNavigatable(Navigatable):
         return Line(line_no + self.lines[index], id=f'code_line_{index}')
     
     def action_toggle_breakpoint(self):
-        print(self.debugger.breaks)
-        print(self.debugger.breakpoints)
-        if self.filepath in self.debugger.breaks:
-            self.debugger.clear_break(
-                filename = self.filepath,
-                lineno = self._index + 1
-            )
-        else:
-            self.debugger.set_breakpoint(
-                filename = self.filepath,
-                lineno = self._index + 1
-            )
-        print(self.debugger.breaks)
-        print(self.debugger.breakpoints)
+        self.debugger.toggle_breakpoint(
+            filename=self.filepath, 
+            lineno=self._index+1)
+        
+    def update_current_line(self, index):
+        try:
+            line = self.query_one(f'#code_line_{self.current_line}')
+            line.remove_class('current_line')
+            line = self.query_one(f'#code_line_{index}')
+            line.add_class('current_line')
+        except Exception:
+            pass
+        
+    def reload_lines(self):
+        super().reload_lines()
+        line = self.query_one(f'#code_line_{self.current_line}')
+        line.add_class('current_line')
+        
+    # def action_do_step(self):
+    #     print(self.debugger.current_bp.file, self.debugger.current_bp.line)
+    #     self.debugger.set_step()
+    #     print(self.debugger.current_bp.file, self.debugger.current_bp.line)
+    #     self.update_current_line(self.debugger.current_bp.line)
+        
+    def action_do_step(self):
+        self.debugger.set_step()
+        # self.update_current_line(self.debugger.current_frame.f_lineno)
+        self.app.exit()
+        
+    def action_do_next(self):
+        # print(self.debugger.current_frame)
+        # print(self.debugger.current_bp.file, self.debugger.current_frame.f_lineno)
+        # print(self.debugger.set_next())
+        # print(self.debugger.current_bp.file, self.debugger.current_frame.f_lineno)
+        # print(self.app._driver)
+        self.debugger.set_next()
+        # self.update_current_line(self.debugger.current_frame.f_lineno)
+        self.app.exit()
+        
+    # def watch_current_line(self, *args, **kwargs):
+    #     try:
+    #         line = self.query_one(f'#code_line_{self.current_line}')
+    #         line.add_class('.current_line')
+    #     except Exception:
+    #         pass
+        
+    # def on_event(self, event: Event) -> Coroutine[Any, Any, None]:
+    #     """Reload the text on terminal resize
+
+    #     Args:
+    #         event (Event): Textual Event
+
+    #     Returns:
+    #         Coroutine[Any, Any, None]: Event details
+    #     """
+    #     if isinstance(event, Resize) and self.lines:
+    #         self.current_line = self.debugger.current_bp.line
+    #     return super().on_event(event)
+        
+        # if self.filepath in self.debugger.breaks:
+        #     self.debugger.clear_break(
+        #         filename = self.filepath,
+        #         lineno = self._index + 1
+        #     )
+        # else:
+        #     self.debugger.set_breakpoint(
+        #         filename = self.filepath,
+        #         lineno = self._index + 1
+        #     )
+        # print(self.debugger.breaks)
+        # print(self.debugger.breakpoints)
     
     # def action_set_text(self):
     #     with open('navigatable.py') as fil:
     #         self.set_lines(fil.read(), cursor_pos=100)
+    
+class VarNavigatable(Navigatable):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, index=0, **kwargs)
+        print(self.debugger.current_frame.f_locals)
+        self.lines = []
+        for key, value in self.debugger.current_frame.f_locals.items():
+            if key.startswith('_'):
+                continue
+            if isinstance(value, ModuleType):
+                continue
+            self.lines.append(f"{key}: {value}")
