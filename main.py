@@ -1,11 +1,13 @@
 import pudb; 
 import tpdb
 import pdb; 
-# pudb.set_trace()
 # pdb.set_trace()
 
 var = 'Testing'
-
+numvar = 10
+listvar = [1,2,3]
+dictvar = {'a': 1, 'b': 2, 'c': 3}
+# pudb.set_trace()
 tpdb.set_trace()
 
 def test():

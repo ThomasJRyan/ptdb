@@ -47,7 +47,7 @@ class Debugger(bdb.Bdb):
     def user_line(self, frame: FrameType) -> None:
         """This function is called when we stop or break at this line."""
         ...
-        if frame.f_lineno > 20:
+        if frame.f_lineno > 30:
             return
         if (frame.f_code.co_filename, frame.f_lineno) in self.breakpoints:
             print('breakpoint', frame)

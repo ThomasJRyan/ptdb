@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import inspect
+
 from types import ModuleType
 from typing import Any, Coroutine, ClassVar, TYPE_CHECKING
 
@@ -10,8 +12,9 @@ from rich.text import Text
 from textual.reactive import reactive
 from textual.events import Resize, Event
 from textual.binding import Binding, BindingType
-from textual.widgets import Static
+from textual.widgets import Static, Tree
 from textual.containers import VerticalScroll, Vertical
+from textual.widgets.tree import TreeNode, TreeDataType
 
 if TYPE_CHECKING:
     from tpdb.debugger import Debugger
@@ -19,7 +22,7 @@ if TYPE_CHECKING:
 # print(f'{self._index=}, {self._line_cursor=}, {self.start=}, {self.end=}, {self.height=}, {len(self.children)}')
 
 
-class Line(Static):
+class Line(Static, can_focus=True):
     """A simple label widget for displaying text-oriented renderables."""
 
     DEFAULT_CSS = """
@@ -195,7 +198,7 @@ class Navigatable(Vertical, can_focus=True):
             self.reload_lines()
         return super().on_event(event)
         
-class CodeNavigatable(Navigatable):
+class CodeNavigatable(Navigatable, can_focus=True):
     
     DEFAULT_CSS = """    
     CodeNavigatable .current_line {
@@ -227,7 +230,7 @@ class CodeNavigatable(Navigatable):
         if index is None:
             index = self._index
         line_count = len(str(len(self.lines)))
-        line_no = Text("{index:>{width}}│ ".format(index=index+1, width=line_count))
+        line_no = Text(" {index:>{width}} ".format(index=index+1, width=line_count))
         return Line(line_no + self.lines[index], id=f'code_line_{index}')
     
     def action_toggle_breakpoint(self):
@@ -307,14 +310,124 @@ class CodeNavigatable(Navigatable):
     #     with open('navigatable.py') as fil:
     #         self.set_lines(fil.read(), cursor_pos=100)
     
-class VarNavigatable(Navigatable):
+class ObjectTree(Tree):
+    DEFAULT_CSS = """
+    ObjectTree {
+        height: 1;
+    }
+    """
+    
+    def __init__(self, label: str, obj: object, *args, **kwargs):
+        super().__init__(label, *args, **kwargs)
+        self.obj = obj
+        
+    def action_toggle_node(self) -> None:
+        if not self._nodes:
+            for key, val in self.obj.__dict__.items():
+                self.root.add(key, val)
+        return super().action_toggle_node()
+        
+class VarNavigatable(VerticalScroll):
     def __init__(self, *args, **kwargs):
-        super().__init__(*args, index=0, **kwargs)
-        print(self.debugger.current_frame.f_locals)
-        self.lines = []
-        for key, value in self.debugger.current_frame.f_locals.items():
-            if key.startswith('_'):
-                continue
-            if isinstance(value, ModuleType):
-                continue
-            self.lines.append(f"{key}: {value}")
+        super().__init__(*args, **kwargs)
+        self.debugger = self.app.debugger
+        # print(self.debugger.current_frame.f_locals)
+        # self.lines = []
+        # for key, value in self.debugger.current_frame.f_locals.items():
+        #     if key.startswith('_'):
+        #         continue
+        #     if isinstance(value, ModuleType):
+        #         continue
+        #     # self.lines.append(f"{key}: {value}")
+        #     self.mount(ObjectTree(key, value))
+
+class VariableView(Tree):
+    
+    DEFAULT_CSS = """
+        ObjectTree {
+            height: 1;
+        }
+    """
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.debugger: Debugger = self.app.debugger
+        self.show_root = False
+        self.guide_depth = 2
+        
+        self.show_level = 0
+        
+        for key, val in self.debugger.current_frame.f_locals.items():
+            self.root.add(f"{key}: {val.__repr__()}", data=val)
+            
+    def _check_value(self, val):
+        literals = (int, str, list, dict, tuple, set, float, bool)
+        if self.show_level == 0:
+            return isinstance(val, literals)
+        elif self.show_level == 1:
+            return isinstance(val, literals)
+        if self.show_level == 2:
+            return True
+        
+            
+        
+        if isinstance(val, ):
+            return False
+        return True
+            
+    # def add_nodes(self, )
+    def _toggle_node(self, node: TreeNode[TreeDataType]) -> None:
+        if not node.allow_expand:
+            return
+        
+        print(self._updates)
+        
+        # if not node.tree.children:
+        # if not node.tree._tree_nodes:
+        if not node._children:
+            for key, val in inspect.getmembers(node.data, self._check_value):
+                if self.show_level == 0 and key.startswith('_'):
+                    continue
+                elif self.show_level == 1 and key.startswith('__'):
+                    continue
+                try:
+                    node.add(f"{key}: {val.__repr__()}", data=val)
+                except Exception:
+                    node.add_leaf(f"{key}: Error", data=val)
+                
+        if node.is_expanded:
+            node.collapse()
+        else:
+            node.expand() 
+    # def action_toggle_node(self) -> None:
+    #     """Toggle the expanded state of the target node."""
+    #     try:
+    #         line = self._tree_lines[self.cursor_line]
+    #     except IndexError:
+    #         pass
+    #     else:
+    #         node = line.path[-1]
+    #         # if not node._tree_nodes:
+    #         #     for key, val, in node.data.__dir__():
+    #         #         print(key, val)
+    #         #         node.add(f"{key}: {val.__repr__()}", data=val)
+    #         self._toggle_node(node)
+
+# class VarNavigatable(Navigatable):
+    
+#     BINDINGS = [
+#         ('enter', 'toggle_attrs', 'Toggle Attributes')
+#     ]
+    
+#     def __init__(self, *args, **kwargs):
+#         super().__init__(*args, **kwargs)
+#         self.lines = []
+#         for key, value in self.debugger.current_frame.f_locals.items():
+#             if key.startswith('_'):
+#                 continue
+#             if isinstance(value, ModuleType):
+#                 continue
+#             self.lines.append(f"{key}: {value.__repr__()}")
+            
+#     def action_toggle_attrs(self):
+        

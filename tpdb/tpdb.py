@@ -5,7 +5,7 @@ from weakref import proxy
 from rich.syntax import Syntax
 
 from textual.app import App, AutopilotCallbackType
-from textual.widgets import Footer, Header, Static
+from textual.widgets import Footer, Header, Static, Label
 from textual.containers import ScrollableContainer, VerticalScroll, Vertical, Horizontal
 
 from typing import TYPE_CHECKING, Any, Coroutine
@@ -15,7 +15,7 @@ if TYPE_CHECKING:
 
 
 from tpdb.widgets import CodeWidget
-from tpdb.widgets.navigatable import CodeNavigatable, VarNavigatable
+from tpdb.widgets.navigatable import CodeNavigatable, VarNavigatable, VariableView
 
 class tPDBApp(App):
     
@@ -42,9 +42,11 @@ class tPDBApp(App):
                 index=self.debugger.current_bp.line-1
                 ),
             Vertical(
-                VarNavigatable(id='var1'),
-                VarNavigatable(id='var2'),
-                VarNavigatable(id='var3'),
+                Label('[u]V[/u]ariables', markup=True),
+                VariableView('Variables', id="variables")
+                # VarNavigatable(id='var1'),
+                # VarNavigatable(id='var2'),
+                # VarNavigatable(id='var3'),
                 )
             )
         yield Footer()
