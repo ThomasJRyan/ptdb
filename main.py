@@ -14,7 +14,7 @@ def test():
     print("In a function")
     return True
 
-with open('test_folder/test.txt', 'w') as fil:
+with open('test.txt', 'w') as fil:
     fil.write('It works!')
 test()
 print("Hello World")

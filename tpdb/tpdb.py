@@ -4,8 +4,9 @@ from weakref import proxy
 
 from rich.syntax import Syntax
 
+from textual.binding import Binding
 from textual.app import App, AutopilotCallbackType
-from textual.widgets import Footer, Header, Static, Label
+from textual.widgets import Footer, Header, Static, Label, Tree
 from textual.containers import ScrollableContainer, VerticalScroll, Vertical, Horizontal
 
 from typing import TYPE_CHECKING, Any, Coroutine
@@ -15,7 +16,7 @@ if TYPE_CHECKING:
 
 
 from tpdb.widgets import CodeWidget
-from tpdb.widgets.navigatable import CodeNavigatable, VarNavigatable, VariableView
+from tpdb.widgets.navigatable import CodeNavigatable, VarNavigatable, VariableView, StackView
 
 class tPDBApp(App):
     
@@ -27,27 +28,41 @@ class tPDBApp(App):
         # sys.settrace(self.debugger.trace_dispatch)
         
     
+    # BINDINGS = [
+    #     ("q", "quit", "Quit"),
+    #     ("d", "toggle_dark", "Toggle dark mode"),
+    #     ("right", "move_right", "Move Right")
+    # ]
+
     BINDINGS = [
-        ("q", "quit", "Quit"),
-        ("d", "toggle_dark", "Toggle dark mode"),
+        Binding("q", "quit", "Quit"),
+        Binding("right", "move_right", "Move Right", show=True, priority=True),
+        Binding("left", "move_left", "Move Left", show=False, priority=True),
     ]
+
+    
     
     
     def compose(self):
         yield Header()
         yield Horizontal(
-            CodeNavigatable(
-                id='code', 
-                filepath=self.debugger.current_bp.file,
-                index=self.debugger.current_bp.line-1
-                ),
+            Vertical(
+                CodeNavigatable(
+                    id='code', 
+                    filepath=self.debugger.current_bp.file,
+                    index=self.debugger.current_bp.line-1
+                    ),
+                id="left-pane"
+            ),
             Vertical(
                 Label('[u]V[/u]ariables', markup=True),
-                VariableView('Variables', id="variables")
-                # VarNavigatable(id='var1'),
-                # VarNavigatable(id='var2'),
-                # VarNavigatable(id='var3'),
-                )
+                VariableView(
+                    'Variables', id="variables"),
+                Label('[u]S[/u]tack', markup=True),
+                StackView(
+                    id='stack'),
+                id="right-pane"
+                ),
             )
         yield Footer()
     
@@ -57,6 +72,16 @@ class tPDBApp(App):
     def action_quit(self) -> Coroutine[Any, Any, None]:
         self.debugger._quit = True
         return super().action_quit()
+
+    def action_move_right(self):
+        pane: Tree = self.query_one('#variables')
+        # pane.cursor_line = 0
+        pane.focus()
+
+    def action_move_left(self):
+        pane = self.query_one('#code')
+        pane.focus()
+    
         
     # def run(self, *args, **kwargs):
     #     super().run(*args, **kwargs)

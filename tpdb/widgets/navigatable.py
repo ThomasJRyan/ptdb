@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 import inspect
 
 from types import ModuleType
@@ -15,6 +16,7 @@ from textual.binding import Binding, BindingType
 from textual.widgets import Static, Tree
 from textual.containers import VerticalScroll, Vertical
 from textual.widgets.tree import TreeNode, TreeDataType
+from textual.geometry import clamp
 
 if TYPE_CHECKING:
     from tpdb.debugger import Debugger
@@ -201,7 +203,7 @@ class Navigatable(Vertical, can_focus=True):
 class CodeNavigatable(Navigatable, can_focus=True):
     
     DEFAULT_CSS = """    
-    CodeNavigatable .current_line {
+    CodeNavigatable .cursor_line {
         background: rgb(0,128,0);
     }
     """
@@ -213,12 +215,12 @@ class CodeNavigatable(Navigatable, can_focus=True):
     ]
     
     # current_line = reactive(0)
-    
+
     def __init__(self, *args, filepath: str, index: int = 0, language: str = 'python', theme: SyntaxTheme = ANSISyntaxTheme, **kwargs):
         super().__init__(*args, index=index, **kwargs)
         
         self.filepath = filepath
-        self.current_line = self.debugger.current_frame.f_lineno - 1
+        self.cursor_line = self.old_cursor_line = self.debugger.current_frame.f_lineno - 1
         
         with open(filepath) as fil:
             text = fil.read()
@@ -238,19 +240,19 @@ class CodeNavigatable(Navigatable, can_focus=True):
             filename=self.filepath, 
             lineno=self._index+1)
         
-    def update_current_line(self, index):
+    def update_cursor_line(self, index):
         try:
-            line = self.query_one(f'#code_line_{self.current_line}')
-            line.remove_class('current_line')
+            line = self.query_one(f'#code_line_{self.cursor_line}')
+            line.remove_class('cursor_line')
             line = self.query_one(f'#code_line_{index}')
-            line.add_class('current_line')
+            line.add_class('cursor_line')
         except Exception:
             pass
         
     def reload_lines(self):
         super().reload_lines()
-        line = self.query_one(f'#code_line_{self.current_line}')
-        line.add_class('current_line')
+        line = self.query_one(f'#code_line_{self.cursor_line}')
+        line.add_class('cursor_line')
         
     # def action_do_step(self):
     #     print(self.debugger.current_bp.file, self.debugger.current_bp.line)
@@ -272,6 +274,14 @@ class CodeNavigatable(Navigatable, can_focus=True):
         self.debugger.set_next()
         # self.update_current_line(self.debugger.current_frame.f_lineno)
         self.app.exit()
+
+    
+
+    # def watch_has_focus(self, has_focus):
+    #     if has_focus:
+    #         self.lines[self.cursor_line].add_class('cursor_line')
+    #     else:
+    #         self.lines[self.cursor_line].remove_class('cursor_line')
         
     # def watch_current_line(self, *args, **kwargs):
     #     try:
@@ -344,8 +354,8 @@ class VarNavigatable(VerticalScroll):
 class VariableView(Tree):
     
     DEFAULT_CSS = """
-        ObjectTree {
-            height: 1;
+        VariableView {
+            overflow-x: hidden;
         }
     """
     
@@ -356,9 +366,12 @@ class VariableView(Tree):
         self.guide_depth = 2
         
         self.show_level = 0
+        self.old_cursor_line = 0
         
+        PRIVATE_VAR_PATTERN = re.compile(r'^__.*__$')
         for key, val in self.debugger.current_frame.f_locals.items():
-            self.root.add(f"{key}: {val.__repr__()}", data=val)
+            if not PRIVATE_VAR_PATTERN.match(key):
+                self.root.add(f"{key}: {val.__repr__()}", data=val)
             
     def _check_value(self, val):
         literals = (int, str, list, dict, tuple, set, float, bool)
@@ -369,7 +382,6 @@ class VariableView(Tree):
         if self.show_level == 2:
             return True
         
-            
         
         if isinstance(val, ):
             return False
@@ -399,6 +411,25 @@ class VariableView(Tree):
             node.collapse()
         else:
             node.expand() 
+
+    def watch_has_focus(self, has_focus):
+        if has_focus:
+            self.cursor_line = self.old_cursor_line
+        else:
+            self.old_cursor_line = self.cursor_line
+            self.cursor_line = -1
+
+    def validate_cursor_line(self, value: int) -> int:
+        """Prevent cursor line from going outside of range.
+
+        Args:
+            value: The value to test.
+
+        Return:
+            A valid version of the given value.
+        """
+        return clamp(value, -1, len(self._tree_lines) - 1)
+
     # def action_toggle_node(self) -> None:
     #     """Toggle the expanded state of the target node."""
     #     try:
@@ -431,3 +462,10 @@ class VariableView(Tree):
             
 #     def action_toggle_attrs(self):
         
+class StackView(Navigatable):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.lines = []
+        stack, _ = self.debugger.get_stack(self.debugger.current_frame, None)
+        for frame, line in stack:
+            self.lines.append(f"{frame.f_code.co_filename}: {frame.f_lineno}")
