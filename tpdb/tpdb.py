@@ -58,10 +58,10 @@ class tPDBApp(App):
                 Label('[u]V[/u]ariables', markup=True),
                 VariableView(
                     'Variables', id="variables"),
-                Label('[u]S[/u]tack', markup=True),
-                StackView(
-                    id='stack'),
-                id="right-pane"
+                # Label('[u]S[/u]tack', markup=True),
+                # StackView(
+                #     id='stack'),
+                # id="right-pane"
                 ),
             )
         yield Footer()

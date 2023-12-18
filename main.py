@@ -1,12 +1,12 @@
 import pudb; 
 import tpdb
 import pdb; 
-# pdb.set_trace()
 
 var = 'Testing'
 numvar = 10
 listvar = [1,2,3]
 dictvar = {'a': 1, 'b': 2, 'c': 3}
+# pdb.set_trace()
 # pudb.set_trace()
 tpdb.set_trace()
 
