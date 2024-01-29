@@ -97,6 +97,7 @@ class CodeBrowser(OptionList):
         Binding("b", "set_break", "Set Breakpoint"),
         Binding("n", "do_next", "Next"),
         Binding("s", "do_step", "Step"),
+        Binding("c", "do_continue", "Continue"),
     ]
     
     COMPONENT_CLASSES = [
@@ -250,4 +251,8 @@ class CodeBrowser(OptionList):
     def action_do_step(self):
         """Step into the next line"""
         self.debugger.set_step()
+        self.app.exit()
+        
+    def action_do_continue(self):
+        self.debugger.set_continue()
         self.app.exit()
