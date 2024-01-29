@@ -117,9 +117,20 @@ class Navigatable(Vertical, can_focus=True):
         return clamp(value, 0, maximum-1)
     
     def validate_slice(self, value):
+        curr_start, curr_end = self.slice
+        
         maximum = len(self._children)
         validate_start = clamp(value[0], 0, maximum - self.height)
         validate_end = clamp(value[1], 0, maximum)
+        
+        print(f"{curr_start=}, {curr_end=}")
+        print(f"{validate_start=}, {validate_end=}")
+        
+        if not self.slice == (0,0):
+            if curr_start == validate_start or curr_end == validate_end:
+                return (curr_start, curr_end)
+            # elif curr_start != validate_start and curr_end == validate_end:
+            #     return (curr_start, curr_end)
         
         # if self.slice[0] == validate_start or self.slice[1] == validate_end:
         #     return value

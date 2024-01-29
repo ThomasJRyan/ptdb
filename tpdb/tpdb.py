@@ -16,7 +16,8 @@ if TYPE_CHECKING:
 
 
 from tpdb.widgets import CodeWidget
-from tpdb.widgets.navigatable import CodeNavigatable, VarNavigatable, VariableView, StackView
+# from tpdb.widgets.navigatable import CodeNavigatable, VarNavigatable, VariableView, StackView
+from tpdb.widgets.browsers import CodeBrowser, VariableBrowser
 
 class tPDBApp(App):
     
@@ -39,6 +40,8 @@ class tPDBApp(App):
         Binding("right", "move_right", "Move Right", show=True, priority=True),
         Binding("left", "move_left", "Move Left", show=False, priority=True),
     ]
+    
+
 
     
     
@@ -47,16 +50,22 @@ class tPDBApp(App):
         yield Header()
         yield Horizontal(
             Vertical(
-                CodeNavigatable(
-                    id='code', 
-                    filepath=self.debugger.current_bp.file,
-                    index=self.debugger.current_bp.line-1
-                    ),
-                id="left-pane"
+                # CodeNavigatable(
+                #     id='code', 
+                #     filepath=self.debugger.current_bp.file,
+                #     index=self.debugger.current_bp.line-1
+                #     ),
+                # id="left-pane"
+                CodeBrowser(
+                    # filepath=self.debugger.current_bp.file,
+                    # index=self.debugger.current_bp.line-1,
+                    filepath=self.debugger.filepath,
+                    index=self.debugger.lineno-1,
+                    id="code-browser"),
             ),
             Vertical(
                 Label('[u]V[/u]ariables', markup=True),
-                VariableView(
+                VariableBrowser(
                     'Variables', id="variables"),
                 # Label('[u]S[/u]tack', markup=True),
                 # StackView(
@@ -79,7 +88,7 @@ class tPDBApp(App):
         pane.focus()
 
     def action_move_left(self):
-        pane = self.query_one('#code')
+        pane = self.query_one('#code-browser')
         pane.focus()
     
         

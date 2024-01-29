@@ -1,3 +1,4 @@
+import os
 import bdb
 import sys
 import time
@@ -35,6 +36,16 @@ class Debugger(bdb.Bdb):
     def app(self, app):
         self._app = app
         
+    @property
+    def filepath(self) -> str:
+        frame_ins = inspect.getframeinfo(self.current_frame)
+        return os.path.realpath(frame_ins.filename)
+    
+    @property
+    def lineno(self) -> int:
+        frame_ins = inspect.getframeinfo(self.current_frame)
+        return frame_ins.lineno
+        
     def interaction(self, frame: FrameType, traceback = None):
         # self.app._exit = False
         self.current_frame = frame
@@ -68,6 +79,12 @@ class Debugger(bdb.Bdb):
         print(frame)
         print(self.break_here(frame))
         
+        print("HERE")
+        
+        self.interaction(frame)
+        
+    def user_return(self, frame: FrameType) -> None:
+        self.set_break(frame.f_code.co_filename, frame.f_lineno)
         self.interaction(frame)
         
         # app = tPDBApp()
@@ -161,11 +178,23 @@ class Debugger(bdb.Bdb):
             self.set_break(self.current_frame.f_code.co_filename, self.current_frame.f_lineno)
             # self.current_bp = self.get_break(current_frame.f_code.co_filename, current_frame.f_lineno)
             self.current_bp = bdb.Breakpoint.bpbynumber[-1]
+            # import threading
+            # t = threading.Thread(target=self.run_ui)
+            # t.start()
             self.app.run()
+            # import time
+            # while True:
+            #     time.sleep(5)
+            #     break
             # self.app.action_quit()
             
         self.set_step()
         sys.settrace(self.trace_dispatch)
+        
+    # def run_ui(self):
+    #     loop = asyncio.new_event_loop()
+    #     asyncio.set_event_loop(loop)
+    #     self.app.run()
             
     
     # def set_trace(self, frame: Union[FrameType, None] = None) -> None:

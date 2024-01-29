@@ -2,6 +2,8 @@ import pudb;
 import tpdb
 import pdb; 
 
+import random
+
 var = 'Testing'
 numvar = 10
 listvar = [1,2,3]
@@ -13,6 +15,8 @@ tpdb.set_trace()
 def test():
     print("In a function")
     return True
+
+random.randint(0, 10)
 
 with open('test.txt', 'w') as fil:
     fil.write('It works!')
@@ -26,41 +30,46 @@ print("Hello World")
 # TEXT
 # TEXT
 # TEXT
-# TEXT
-# TEXT
-# TEXT
-# TEXT
-# TEXT
-# TEXT
-# TEXT
-# TEXT
-# TEXT
-# TEXT
-# TEXT
-# TEXT
-# TEXT
-# TEXT
-# TEXT
-# TEXT
-# TEXT
-# TEXT
-# TEXT
-# TEXT
-# TEXT
-# TEXT1
-# TEXT2
-# TEXT3
-# TEXT4
-# TEXT5
-# TEXT6
-# TEXT7
-# TEXT8
-# TEXT
-# TEXT
-# TEXT
-# TEXT
-# TEXT
-# TEXT
-# TEXT
-# TEXT
-# TEXT
+
+
+x = 1
+x = 1
+x = 1
+x = 1
+x = 1
+x = 1
+x = 1
+x = 1
+x = 1
+x = 1
+x = 1
+x = 1
+x = 1
+x = 1
+x = 1
+
+
+y = 2
+y = 2
+y = 2
+y = 2
+y = 2
+y = 2
+y = 2
+y = 2
+y = 2
+y = 2
+y = 2
+y = 2
+y = 2
+y = 2
+y = 2
+y = 2
+y = 2
+y = 2
+y = 2
+y = 2
+y = 2
+y = 2
+y = 2
+y = 2
