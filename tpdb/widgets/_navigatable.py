@@ -10,7 +10,7 @@ from rich.syntax import Syntax, ANSISyntaxTheme, ANSI_DARK, SyntaxTheme, Lines
 from rich.text import Text
 
 
-from textual.reactive import reactive
+from textual.reactive import reactive, var
 from textual.events import Resize, Event
 from textual.binding import Binding, BindingType
 from textual.widgets import Static, Tree
@@ -32,7 +32,19 @@ class Line(Static, can_focus=True):
         width: 100%;
         height: 1;
     }
+
+    .highlighted {
+        background: rgb(0,128,255) !important;
+    }
     """
+
+    highlighted = reactive(False)
+
+    def watch_highlighted(self, value):
+        if self.highlighted:
+            self.add_class("highlighted")
+        else:
+            self.remove_class("highlighted")
     
 def ensure_lines(func):
     def wrapper(self, *args, **kwargs):
@@ -50,138 +62,165 @@ class Navigatable(Vertical, can_focus=True):
     """
     
     BINDINGS: ClassVar[list[BindingType]] = [
-        Binding("up", "scroll_up", "Scroll Up", show=False),
-        Binding("down", "scroll_down", "Scroll Down", show=False),
-        Binding("left", "scroll_left", "Scroll Up", show=False),
-        Binding("right", "scroll_right", "Scroll Right", show=False),
+        Binding("up", "cursor_up", "Scroll Up", show=False),
+        Binding("down", "cursor_down", "Scroll Down", show=False),
         Binding("home", "scroll_home", "Scroll Home", show=False),
         Binding("end", "scroll_end", "Scroll End", show=False),
         Binding("pageup", "page_up", "Page Up", show=False),
         Binding("pagedown", "page_down", "Page Down", show=False),
     ]
+
+    cursor_line = reactive(0)
+
+    slice = reactive((0, 0))
+    height = var(0)
+
+    index = var(0)
+
+    lines = reactive([])
     
-    def __init__(self, *args, index: int = 0, **kwargs):
-        self.lines: Lines = None
-        self._index = index
-        self._line_cursor = 0
+    def __init__(self, *children: list[Lines], **kwargs):
+        self.last_slice = self.slice
         
         self.debugger: Debugger = self.app.debugger
-            
-        super().__init__(*args, **kwargs)
+        self._children = children
+        self.last_child = self._children[self.cursor_line]
         
+        self._start = self._end = 0
         
-        
-    # def set_lines(self, text: str, language: str = 'python', theme: SyntaxTheme = ANSISyntaxTheme, cursor_pos: int = 0):
-    #     """Sets the lines
-
-    #     Args:
-    #         text (str): Text to split on newlines and set
-    #         language (str, optional): Language to highlight. Defaults to 'python'.
-    #         theme (SyntaxTheme, optional): Theme to use to highlight. Defaults to ANSISyntaxTheme.
-    #         cursor_pos (int, optional): Cursor position to start at. Defaults to 0
-    #     """
-    #     syntax_highlighter = Syntax('', language, theme=theme(ANSI_DARK))
-    #     highlighted_text = syntax_highlighter.highlight(text)
-    #     self.lines = highlighted_text.split()
-        
-    #     # Remove children and update lines
-    #     self.remove_children()
-    #     self.update_line_range()
-    #     for i in range(self.start, self.end):
-    #         self.mount(Line(self.lines[i]))
-            
-    #     self._index = cursor_pos
-    #     self.reload_lines()
-        
-    def reload_lines(self):
-        """Reload the lines. Primarly used for terminal size change"""
-        current_line = self.lines[self._index]
-        
-        # Remove all children and update the line range
-        self.remove_children()
-        self.update_line_range()
-        
-        # Get the midpoint of the new height so we can center our cursor
-        half_height = self.height // 2
-        if self._index > half_height:
-            for _ in range(half_height):
-                if self.end + 1 >= len(self.lines):
-                    break
-                self.end += 1
-                self.start += 1
-        
-        # Mount the lines to the container
-        for cur_pos, i in enumerate(range(self.start, self.end)):
-            if id(self.lines[i]) == id(current_line):
-                self._line_cursor = cur_pos
-            self.mount(self.get_formatted_line(i))
-            
-        # Add our cursor highlight
-        self.children[self._line_cursor].add_class('highlighted')
-                    
-    def update_line_range(self):
-        """Updates the current line range"""
-        self.height = self.size.height
-        self.start = max(0, self._index + 1 - self.height)
-        self.end = min(len(self.lines), self.start + self.height)
-        
-    def paginate(self, direction: int) -> bool:
-        """Paginate the given lines
-
-        Args:
-            direction (int): Direction to paginate
-
-        Returns:
-            bool: True if successfully paginated, False otherwise
-        """
-        # Move Down
-        if self._index >= self.end:
-            self.mount(self.get_formatted_line(self._index))
-            self.children[0].remove()
-            self.end += direction
-            self.start += direction
-            return True
-        # Move Up
-        elif self._index < self.start:
-            self.mount(self.get_formatted_line(self._index), before=0)
-            self.children[-1].remove()
-            self.end += direction
-            self.start += direction
-            return True
-        return False
-        
-    def update_cursor(self, direction: int) -> None:
-        """Updates the cursor in the given direction
-
-        Args:
-            direction (int): Direction to update the cursor to
-                             Positive numbers bring the cursor down
-                             Negative numbers bring the cursor up 
-        """
-        self._index += direction
-        self.children[self._line_cursor].remove_class('highlighted')
-        if not self.paginate(direction):
-            self._line_cursor += direction
-        self.children[self._line_cursor].add_class('highlighted')
+        super().__init__(**kwargs)
         
     def get_formatted_line(self, index):
         return Line(self.lines[index])
     
+    def reload_lines(self):
+        self._ready = True
+        self.remove_children()
+        self.height = self.size.height
+        start = max(0, self.cursor_line + 1 - self.height)
+        end = min(len(self._children), start + self.height)
+        self.mount_all(self._children[start:end])
+        self.slice = (start, end)
+        self.children[self.cursor_line].highlighted = True
+
+        
+
+    #------------------------------------------------
+    #                Validators
+    #------------------------------------------------
+    
+    def validate_index(self, value):
+        return clamp(value, 0, len(self._children))
+
+    def validate_cursor_line(self, value):
+        maximum = min(len(self.children), self.height)
+        return clamp(value, 0, maximum-1)
+    
+    def validate_slice(self, value):
+        curr_start, curr_end = self.slice
+        
+        maximum = len(self._children)
+        validate_start = clamp(value[0], 0, maximum - self.height)
+        validate_end = clamp(value[1], 0, maximum)
+        
+        print(f"{curr_start=}, {curr_end=}")
+        print(f"{validate_start=}, {validate_end=}")
+        
+        if not self.slice == (0,0):
+            if curr_start == validate_start or curr_end == validate_end:
+                return (curr_start, curr_end)
+            # elif curr_start != validate_start and curr_end == validate_end:
+            #     return (curr_start, curr_end)
+        
+        # if self.slice[0] == validate_start or self.slice[1] == validate_end:
+        #     return value
+        return (validate_start, validate_end)
+
+
+    #------------------------------------------------
+    #                Watchers
+    #------------------------------------------------
+
+    def watch_cursor_line(self, value: int) -> None:
+        try:
+            self.last_child.highlighted = False
+            self.children[self.cursor_line].highlighted = True
+            self.last_child = self.children[self.cursor_line]
+        except Exception as e:
+            print(f"EXCEPTION: {e}")
+
+    # async def watch_lines(self, value):
+    #     await self.remove_children()
+    #     try:
+    #         self.lines[self.cursor_line].highlighted = True
+    #         self.mount_all(self.lines)
+    #     except Exception as e:
+    #         print(f"EXCEPTION: {e}")
+            
+    def watch_slice(self, value):
+        try:
+            start, end = self.slice
+            last_start, last_end = self.last_slice
+            
+            diff_start = start - last_start
+            diff_end = end - last_end
+            
+            sliced_children = self._children[start:end]
+            diff_children = [c for c in sliced_children if c not in self.children]
+            
+            print(diff_start)
+            print(diff_children)
+            
+            if diff_start > 0:
+                for pos, child in enumerate(reversed(diff_children)):
+                    if pos == diff_start:
+                        break
+                    self.children[0].remove()
+                    self.last_child.highlighted = False
+                    child.highlighted = True
+                    self.mount(child)
+                    self.last_child = child
+            elif diff_start < 0:
+                
+                for pos, child in enumerate(diff_children):
+                    print(pos,child)
+                    if -pos == diff_start:
+                        break
+                    self.children[-1].remove()
+                    self.last_child.highlighted = False
+                    child.highlighted = True
+                    self.mount(child, before=0)
+                    self.last_child = child
+            else:
+                self.mount_all(self._children[start:end])
+        except Exception as e:
+            print(f"EXCEPTION: {e}")
+            
+        self.last_slice = self.slice
+        
     #------------------------------------------------
     #                Actions
     #------------------------------------------------
-    
-    @ensure_lines
-    def action_scroll_down(self) -> None:
-        """Scroll the text down"""
-        if self._index + 1 < len(self.lines):
-            self.update_cursor(1)
+
+    def action_cursor_down(self):
+        old_cursor = self.cursor_line
+        self.cursor_line += 1
+        self.index += 1
+        
+        if self.cursor_line == old_cursor and not self.index == len(self.children):
+            start, end = self.slice
+            self.slice = (start+1, end+1)
+        print(self.slice)
             
-    @ensure_lines
-    def action_scroll_up(self) -> None:
-        """Scroll the text up"""
-        if self._index - 1 >= 0:
-            self.update_cursor(-1)
+    def action_cursor_up(self):
+        old_cursor = self.cursor_line
+        self.cursor_line -= 1
+        self.index -= 1
+        
+        if self.cursor_line == old_cursor and not self.index == 0:
+            start, end = self.slice
+            self.slice = (start-1, end-1)
+        print(self.slice)
         
     #------------------------------------------------
     #                Events
@@ -196,7 +235,7 @@ class Navigatable(Vertical, can_focus=True):
         Returns:
             Coroutine[Any, Any, None]: Event details
         """
-        if isinstance(event, Resize) and self.lines:
+        if isinstance(event, Resize):
             self.reload_lines()
         return super().on_event(event)
         
@@ -217,42 +256,46 @@ class CodeNavigatable(Navigatable, can_focus=True):
     # current_line = reactive(0)
 
     def __init__(self, *args, filepath: str, index: int = 0, language: str = 'python', theme: SyntaxTheme = ANSISyntaxTheme, **kwargs):
-        super().__init__(*args, index=index, **kwargs)
-        
         self.filepath = filepath
-        self.cursor_line = self.old_cursor_line = self.debugger.current_frame.f_lineno - 1
         
         with open(filepath) as fil:
             text = fil.read()
             syntax_highlighter = Syntax('', language, theme=theme(ANSI_DARK))
             highlighted_text = syntax_highlighter.highlight(text)
-            self.lines = highlighted_text.split()
+            self._lines = highlighted_text.split()
+            children = [self.format_line(i) for i in range(len(self._lines))]
+        
+        super().__init__(*children, **kwargs)
+        self.index = index
+        self.cursor_line = self.debugger.current_frame.f_lineno - 1
+        
+        
                     
-    def get_formatted_line(self, index: int = None):
+    def format_line(self, index: int = None):
         if index is None:
             index = self._index
-        line_count = len(str(len(self.lines)))
+        line_count = len(str(len(self._lines)))
         line_no = Text(" {index:>{width}} ".format(index=index+1, width=line_count))
-        return Line(line_no + self.lines[index], id=f'code_line_{index}')
+        return Line(line_no + self._lines[index], id=f'code_line_{index}')
     
-    def action_toggle_breakpoint(self):
-        self.debugger.toggle_breakpoint(
-            filename=self.filepath, 
-            lineno=self._index+1)
+    # def action_toggle_breakpoint(self):
+    #     self.debugger.toggle_breakpoint(
+    #         filename=self.filepath, 
+    #         lineno=self._index+1)
         
-    def update_cursor_line(self, index):
-        try:
-            line = self.query_one(f'#code_line_{self.cursor_line}')
-            line.remove_class('cursor_line')
-            line = self.query_one(f'#code_line_{index}')
-            line.add_class('cursor_line')
-        except Exception:
-            pass
+    # def update_cursor_line(self, index):
+    #     try:
+    #         line = self.query_one(f'#code_line_{self.cursor_line}')
+    #         line.remove_class('cursor_line')
+    #         line = self.query_one(f'#code_line_{index}')
+    #         line.add_class('cursor_line')
+    #     except Exception:
+    #         pass
         
-    def reload_lines(self):
-        super().reload_lines()
-        line = self.query_one(f'#code_line_{self.cursor_line}')
-        line.add_class('cursor_line')
+    # def reload_lines(self):
+    #     super().reload_lines()
+    #     line = self.query_one(f'#code_line_{self.cursor_line}')
+    #     line.add_class('cursor_line')
         
     # def action_do_step(self):
     #     print(self.debugger.current_bp.file, self.debugger.current_bp.line)
@@ -260,20 +303,20 @@ class CodeNavigatable(Navigatable, can_focus=True):
     #     print(self.debugger.current_bp.file, self.debugger.current_bp.line)
     #     self.update_current_line(self.debugger.current_bp.line)
         
-    def action_do_step(self):
-        self.debugger.set_step()
-        # self.update_current_line(self.debugger.current_frame.f_lineno)
-        self.app.exit()
+    # def action_do_step(self):
+    #     self.debugger.set_step()
+    #     # self.update_current_line(self.debugger.current_frame.f_lineno)
+    #     self.app.exit()
         
-    def action_do_next(self):
-        # print(self.debugger.current_frame)
-        # print(self.debugger.current_bp.file, self.debugger.current_frame.f_lineno)
-        # print(self.debugger.set_next())
-        # print(self.debugger.current_bp.file, self.debugger.current_frame.f_lineno)
-        # print(self.app._driver)
-        self.debugger.set_next()
-        # self.update_current_line(self.debugger.current_frame.f_lineno)
-        self.app.exit()
+    # def action_do_next(self):
+    #     # print(self.debugger.current_frame)
+    #     # print(self.debugger.current_bp.file, self.debugger.current_frame.f_lineno)
+    #     # print(self.debugger.set_next())
+    #     # print(self.debugger.current_bp.file, self.debugger.current_frame.f_lineno)
+    #     # print(self.app._driver)
+    #     self.debugger.set_next()
+    #     # self.update_current_line(self.debugger.current_frame.f_lineno)
+    #     self.app.exit()
 
     
 

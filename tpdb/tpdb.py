@@ -1,13 +1,9 @@
-import sys
-
 from weakref import proxy
 
-from rich.syntax import Syntax
-
 from textual.binding import Binding
-from textual.app import App, AutopilotCallbackType
-from textual.widgets import Footer, Header, Static, Label, Tree
-from textual.containers import ScrollableContainer, VerticalScroll, Vertical, Horizontal
+from textual.app import App
+from textual.widgets import Footer, Header, Label, Tree
+from textual.containers import Vertical, Horizontal
 
 from typing import TYPE_CHECKING, Any, Coroutine
 
@@ -15,8 +11,7 @@ if TYPE_CHECKING:
     from tpdb.debugger import Debugger
 
 
-from tpdb.widgets import CodeWidget
-from tpdb.widgets.navigatable import CodeNavigatable, VarNavigatable, VariableView, StackView
+from tpdb.widgets.browsers import CodeBrowser, VariableBrowser, StackBrowser
 
 class tPDBApp(App):
     
@@ -24,44 +19,29 @@ class tPDBApp(App):
         super().__init__(*args, **kwargs)
         
         self.debugger: Debugger = proxy(debugger)
-        # self.debugger.set_step()
-        # sys.settrace(self.debugger.trace_dispatch)
-        
-    
-    # BINDINGS = [
-    #     ("q", "quit", "Quit"),
-    #     ("d", "toggle_dark", "Toggle dark mode"),
-    #     ("right", "move_right", "Move Right")
-    # ]
 
     BINDINGS = [
         Binding("q", "quit", "Quit"),
         Binding("right", "move_right", "Move Right", show=True, priority=True),
         Binding("left", "move_left", "Move Left", show=False, priority=True),
     ]
-
-    
-    
     
     def compose(self):
         yield Header()
         yield Horizontal(
             Vertical(
-                CodeNavigatable(
-                    id='code', 
-                    filepath=self.debugger.current_bp.file,
-                    index=self.debugger.current_bp.line-1
-                    ),
-                id="left-pane"
+                CodeBrowser(
+                    filepath=self.debugger.filepath,
+                    index=self.debugger.lineno-1,
+                    id="code-browser"),
             ),
             Vertical(
                 Label('[u]V[/u]ariables', markup=True),
-                VariableView(
+                VariableBrowser(
                     'Variables', id="variables"),
                 Label('[u]S[/u]tack', markup=True),
-                StackView(
-                    id='stack'),
-                id="right-pane"
+                StackBrowser(
+                    'Stack', id="stack"),
                 ),
             )
         yield Footer()
@@ -75,28 +55,11 @@ class tPDBApp(App):
 
     def action_move_right(self):
         pane: Tree = self.query_one('#variables')
-        # pane.cursor_line = 0
         pane.focus()
 
     def action_move_left(self):
-        pane = self.query_one('#code')
+        pane = self.query_one('#code-browser')
         pane.focus()
-    
-        
-    # def run(self, *args, **kwargs):
-    #     super().run(*args, **kwargs)
-    #     self.debugger.set_step()
-    #     sys.settrace(self.debugger.trace_dispatch)
-    
-        
-    # def on_mount(self):
-    #     current_bp = self.debugger.current_bp
-        # with open(current_bp.file) as f:
-        #     code = Syntax(f.read(), "python", line_numbers=True)
-        #     self.query_one("#code").update(code)
-            # self.insert(f.read())
-            # self.cursor_location = (current_bp.line-1, 0)
-    
         
         
 if __name__ == '__main__':
