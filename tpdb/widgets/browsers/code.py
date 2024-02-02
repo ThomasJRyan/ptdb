@@ -245,14 +245,14 @@ class CodeBrowser(OptionList):
     
     def action_do_next(self):
         """Execute the next line"""
-        self.debugger.set_next()
+        self.debugger.do_next()
         self.app.exit()
         
     def action_do_step(self):
         """Step into the next line"""
-        self.debugger.set_step()
+        self.debugger.do_step()
         self.app.exit()
         
     def action_do_continue(self):
-        self.debugger.set_continue()
+        self.debugger.do_continue()
         self.app.exit()

@@ -16,13 +16,14 @@ def test():
     print("In a function")
     return True
 
-random.randint(0, 10)
-
-with open('test.txt', 'w') as fil:
-    fil.write('It works!')
 test()
-print("Hello World")
-print("Hello World")
+
+# random.randint(0, 10)
+
+# with open('test.txt', 'w') as fil:
+#     fil.write('It works!')
+# print("Hello World")
+# print("Hello World")
 
 
 
@@ -32,44 +33,44 @@ print("Hello World")
 # TEXT
 
 
-x = 1
-x = 1
-x = 1
-x = 1
-x = 1
-x = 1
-x = 1
-x = 1
-x = 1
-x = 1
-x = 1
-x = 1
-x = 1
-x = 1
-x = 1
+# x = 1
+# x = 1
+# x = 1
+# x = 1
+# x = 1
+# x = 1
+# x = 1
+# x = 1
+# x = 1
+# x = 1
+# x = 1
+# x = 1
+# x = 1
+# x = 1
+# x = 1
 
 
-y = 2
-y = 2
-y = 2
-y = 2
-y = 2
-y = 2
-y = 2
-y = 2
-y = 2
-y = 2
-y = 2
-y = 2
-y = 2
-y = 2
-y = 2
-y = 2
-y = 2
-y = 2
-y = 2
-y = 2
-y = 2
-y = 2
-y = 2
-y = 2
+# y = 2
+# y = 2
+# y = 2
+# y = 2
+# y = 2
+# y = 2
+# y = 2
+# y = 2
+# y = 2
+# y = 2
+# y = 2
+# y = 2
+# y = 2
+# y = 2
+# y = 2
+# y = 2
+# y = 2
+# y = 2
+# y = 2
+# y = 2
+# y = 2
+# y = 2
+# y = 2
+# y = 2

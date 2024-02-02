@@ -7,7 +7,7 @@ import inspect
 import asyncio
 
 from types import FrameType, TracebackType
-from typing import Union
+from typing import Union, Any
 
 from tpdb.tpdb import tPDBApp
 
@@ -96,25 +96,37 @@ class Debugger(bdb.Bdb):
         self.set_break(frame.f_code.co_filename, frame.f_lineno)
         self.interaction(frame)
         
-    def user_return(self, frame: FrameType) -> None:
-        self.set_break(frame.f_code.co_filename, frame.f_lineno)
-        self.interaction(frame)
+    def user_return(self, frame: FrameType, return_value: Any) -> None:
+        # self.set_break(frame.f_code.co_filename, frame.f_lineno)
+        if frame.f_code.co_name != "<module>":
+            frame.f_locals["__return__"] = return_value
         
-    def set_step(self):
-        self.current_frame = self.stack[self.current_index][0]
-        return super().set_step()
-    
-    def set_next(self):
-        self.current_frame = self.stack[self.current_index][0]
-        return super().set_next(self.current_frame)
-    
-    def set_return(self) -> None:
-        self.current_frame = self.stack[self.current_index][0]
-        return super().set_return(self.current_frame)
+        if "__exc_tuple__" not in frame.f_locals:
+            self.interaction(frame)
+        
+    def user_exception(self, frame: FrameType, exception: Exception) -> None:
+        return super().user_exception(frame, exception)
+        
         
     #------------------------------------------------
     #                Custom functions
     #------------------------------------------------
+    
+    def do_step(self):
+        self.set_step()
+        return 1
+    
+    def do_next(self):
+        self.set_next(self.current_frame)
+        return 1
+    
+    def do_return(self) -> None:
+        self.set_return(self.current_frame)
+        return 1
+    
+    def do_continue(self) -> None:
+        self.set_continue()
+        return 1
         
     def set_breakpoint(self, filename: str, lineno: int) -> None:
         self.set_break(filename, lineno)
@@ -131,12 +143,6 @@ class Debugger(bdb.Bdb):
         else:
             self.set_breakpoint(filename, lineno)
             
-    def user_return(self, frame: FrameType, return_value: None) -> None:
-        return super().user_return(frame, return_value)
-    
-    def user_exception(self, frame: FrameType, exception: Exception) -> None:
-        return super().user_exception(frame, exception)
-    
     def set_trace(self, frame=None, as_breakpoint=None, paused=True):
         """Start debugging from frame.
 

@@ -11,7 +11,7 @@ if TYPE_CHECKING:
     from tpdb.debugger import Debugger
 
 
-from tpdb.widgets.browsers import CodeBrowser, VariableBrowser
+from tpdb.widgets.browsers import CodeBrowser, VariableBrowser, StackBrowser
 
 class tPDBApp(App):
     
@@ -39,6 +39,9 @@ class tPDBApp(App):
                 Label('[u]V[/u]ariables', markup=True),
                 VariableBrowser(
                     'Variables', id="variables"),
+                Label('[u]S[/u]tack', markup=True),
+                StackBrowser(
+                    'Stack', id="stack"),
                 ),
             )
         yield Footer()

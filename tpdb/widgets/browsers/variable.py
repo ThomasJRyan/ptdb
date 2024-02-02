@@ -10,6 +10,8 @@ from textual.widgets import Tree
 from textual.widgets.tree import TreeNode, TreeDataType
 from textual.geometry import clamp
 
+from rich.text import Text
+
 
 if TYPE_CHECKING:
     from tpdb.debugger import Debugger
@@ -31,6 +33,11 @@ class VariableBrowser(Tree):
         self.show_level = 0
         self.old_cursor_line = 0
         
+        if (val := self.debugger.current_frame.f_locals.pop('__return__', None)):
+            text = Text(f"return: {val.__repr__()}")
+            text.stylize('bold green')
+            self.root.add(text, data=val)
+            
         PRIVATE_VAR_PATTERN = re.compile(r'^__.*__$')
         for key, val in self.debugger.current_frame.f_locals.items():
             if PRIVATE_VAR_PATTERN.match(key):
